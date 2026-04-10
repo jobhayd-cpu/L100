@@ -7,7 +7,7 @@ alembic==1.13.1
 pgvector==0.2.5
 pydantic==2.7.1
 pydantic-settings==2.2.1
-python-multipart==0.0.9
+python-multipart==0.0.22
 python-dotenv==1.0.1
 
 # PDF processing
@@ -16,7 +16,7 @@ pypdfium2==4.30.0
 
 # OCR
 pytesseract==0.3.10
-Pillow==10.3.0
+Pillow==12.1.1
 
 # Embeddings / LLM
 openai==1.30.1
