@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: legal_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-legaldb}
+      POSTGRES_USER: ${POSTGRES_USER:-legaluser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-legalpass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/setup_db.sql:/docker-entrypoint-initdb.d/setup_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-legaluser} -d ${POSTGRES_DB:-legaldb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: legal_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-legaluser}:${POSTGRES_PASSWORD:-legalpass}@db:5432/${POSTGRES_DB:-legaldb}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-legaluser}:${POSTGRES_PASSWORD:-legalpass}@db:5432/${POSTGRES_DB:-legaldb}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
+      TESSERACT_CMD: ${TESSERACT_CMD:-tesseract}
+      OCR_LANG: ${OCR_LANG:-spa}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./cases:/app/cases
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:
