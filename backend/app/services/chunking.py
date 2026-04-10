@@ -42,8 +42,8 @@ def chunk_pages(
                 end = min(start + max_chars, len(text))
                 sub = text[start:end]
                 chunks.append((page_num, page_num, sub))
-                start = end - overlap_chars
-                if start <= 0:
+                if end == len(text):
                     break
+                start = end - overlap_chars
 
     return chunks

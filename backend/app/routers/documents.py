@@ -100,9 +100,10 @@ async def ingest_documents(
             detail="Debes proporcionar folder_path en el body.",
         )
 
-    folder = payload.folder_path
+    # Resolve and sanitize the folder path
+    folder = os.path.realpath(os.path.abspath(payload.folder_path))
     if not os.path.isdir(folder):
-        raise HTTPException(status_code=422, detail=f"La carpeta '{folder}' no existe o no es accesible.")
+        raise HTTPException(status_code=422, detail="La carpeta proporcionada no existe o no es accesible.")
 
     files = scan_folder(folder)
     if not files:
@@ -147,7 +148,8 @@ async def upload_document(
     from datetime import date as date_type
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    dest = os.path.join(UPLOAD_DIR, file.filename or "upload")
+    safe_filename = Path(file.filename or "upload").name  # Strip any path components
+    dest = os.path.join(UPLOAD_DIR, safe_filename)
     with open(dest, "wb") as f:
         content = await file.read()
         f.write(content)

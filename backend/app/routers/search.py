@@ -39,14 +39,10 @@ async def _do_search(payload: SearchRequest, db: AsyncSession) -> SearchResponse
     query_vec = embed_query(payload.query)
     query_vec_str = "[" + ",".join(str(v) for v in query_vec) + "]"
 
-    # Build case filter
-    case_filter = ""
-    if payload.case_id is not None:
-        case_filter = f"AND d.case_id = {payload.case_id}"
-
     # Combined query: semantic + keyword score
+    # case_id filter uses parameterized :case_id to avoid SQL injection
     sql = text(
-        f"""
+        """
         SELECT
             dc.id,
             dc.document_id,
@@ -68,7 +64,7 @@ async def _do_search(payload: SearchRequest, db: AsyncSession) -> SearchResponse
             END AS keyword_score
         FROM document_chunks dc
         JOIN documents d ON d.id = dc.document_id
-        WHERE 1=1 {case_filter}
+        WHERE (:case_id IS NULL OR d.case_id = :case_id)
         ORDER BY
             (
                 CASE WHEN dc.embedding IS NOT NULL
@@ -95,6 +91,7 @@ async def _do_search(payload: SearchRequest, db: AsyncSession) -> SearchResponse
             "top_k": payload.top_k,
             "vec_weight": vec_weight,
             "kw_weight": keyword_weight,
+            "case_id": payload.case_id,
         },
     )
     rows = result.fetchall()

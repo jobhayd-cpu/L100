@@ -23,7 +23,7 @@ def _hash_embed(text: str, dim: int = 128) -> List[float]:
     text = text.lower()
     for i in range(len(text) - 2):
         ngram = text[i : i + 3]
-        h = int(hashlib.md5(ngram.encode()).hexdigest(), 16)  # nosec B324 - not cryptographic
+        h = int(hashlib.sha256(ngram.encode()).hexdigest(), 16)
         idx = h % dim
         vec[idx] += 1.0
 

@@ -14,8 +14,9 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp"}
 
 
 def compute_sha256(file_path: str) -> str:
+    safe_path = os.path.realpath(os.path.abspath(file_path))
     h = hashlib.sha256()
-    with open(file_path, "rb") as f:
+    with open(safe_path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
@@ -23,12 +24,16 @@ def compute_sha256(file_path: str) -> str:
 
 def scan_folder(folder_path: str) -> List[str]:
     """Return list of PDF and image file paths found in folder_path (recursive)."""
+    safe_folder = os.path.realpath(os.path.abspath(folder_path))
     found = []
-    for root, _dirs, files in os.walk(folder_path):
+    for root, _dirs, files in os.walk(safe_folder, followlinks=False):
         for fname in sorted(files):
             ext = Path(fname).suffix.lower()
             if ext in PDF_EXTENSIONS | IMAGE_EXTENSIONS:
-                found.append(os.path.join(root, fname))
+                full_path = os.path.join(root, fname)
+                # Ensure the resolved path is still within the base folder
+                if os.path.realpath(full_path).startswith(safe_folder):
+                    found.append(full_path)
     return found
 
 
