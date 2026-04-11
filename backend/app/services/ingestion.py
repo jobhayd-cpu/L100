@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Supported file extensions
 PDF_EXTENSIONS = {".pdf"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp"}
+TEXT_EXTENSIONS = {".txt"}
 
 
 def compute_sha256(file_path: str) -> str:
@@ -29,7 +30,7 @@ def scan_folder(folder_path: str) -> List[str]:
     for root, _dirs, files in os.walk(safe_folder, followlinks=False):
         for fname in sorted(files):
             ext = Path(fname).suffix.lower()
-            if ext in PDF_EXTENSIONS | IMAGE_EXTENSIONS:
+            if ext in PDF_EXTENSIONS | IMAGE_EXTENSIONS | TEXT_EXTENSIONS:
                 full_path = os.path.join(root, fname)
                 # Ensure the resolved path is still within the base folder
                 if os.path.realpath(full_path).startswith(safe_folder):
@@ -121,19 +122,46 @@ def load_image_file(file_path: str):
         return None
 
 
+def extract_text_file(file_path: str) -> List[Tuple[int, str, bool]]:
+    """
+    Read a plain-text file and split it into logical pages of ~3 000 chars each.
+    Returns list of (page_number_1based, text, is_ocr=False).
+    """
+    PAGE_CHARS = 3000
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+    except Exception as exc:
+        logger.warning("Failed to read text file %s: %s", file_path, exc)
+        return []
+
+    pages = []
+    for i, start in enumerate(range(0, max(len(content), 1), PAGE_CHARS), start=1):
+        chunk = content[start : start + PAGE_CHARS].strip()
+        if chunk:
+            pages.append((i, chunk, False))
+    return pages
+
+
 def extract_pages(
     file_path: str,
     ocr_lang: str = "spa",
     ocr_threshold: int = 50,
 ) -> List[Tuple[int, str, bool, Optional[float]]]:
     """
-    Extract all pages from a PDF or image file.
+    Extract all pages from a PDF, image, or plain-text file.
     Returns list of (page_number_1based, text, is_ocr, ocr_confidence).
     For scanned pages (text < ocr_threshold chars), falls back to OCR.
     For image files, always uses OCR.
+    For .txt files, splits into logical pages of ~3 000 chars.
     """
     ext = Path(file_path).suffix.lower()
     results = []
+
+    if ext in TEXT_EXTENSIONS:
+        for page_num, text, is_ocr in extract_text_file(file_path):
+            results.append((page_num, text, is_ocr, None))
+        return results
 
     if ext in IMAGE_EXTENSIONS:
         img = load_image_file(file_path)
